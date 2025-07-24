@@ -1,69 +1,57 @@
 pipeline {
     agent any
-
-    environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials') // DockerHub credentials configured in Jenkins
-        DOCKERHUB_REPO = 'cubensquare/vanakkam-world'
-        DOCKER_IMAGE_TAG = 'latest'
-        KUBECONFIG_CREDENTIALS = credentials('kubeconfig-credentials') // Kubernetes kubeconfig credentials
+   tools {
+      maven 'mymaven'    
     }
-    tools {
-    maven 'mymaven'
+    environment {
+        IMAGE_NAME = "satheesh2911/java-app"
+        IMAGE_TAG = "1.0"
     }
     stages {
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
-                echo 'Cloning the repository...'
-                git url: 'https://github.com/mgsgoms/vanakkam-world', branch: 'master'
+                git url: 'https://github.com/cubensquarets/vanakkam-world.git'
             }
         }
+
 
         stage('Build with Maven') {
             steps {
-                echo 'Building the project using Maven...'
-                sh 'mvn clean install'
+                withMaven(maven: 'mymaven') {
+                    sh 'mvn clean package'
+                }
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Docker Build') {
             steps {
-                echo 'Building Docker image...'
-                sh '''
-                    docker build -t $DOCKERHUB_REPO:$DOCKER_IMAGE_TAG .
-                '''
+                sh 'docker build -t $IMAGE_NAME:$IMAGE_TAG .'
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Docker Login & Push') {
             steps {
-                echo 'Pushing Docker image to DockerHub...'
-                sh '''
-                    echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
-                    docker push $DOCKERHUB_REPO:$DOCKER_IMAGE_TAG
-                '''
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                echo 'Deploying the application to Kubernetes...'
-                withCredentials([file(credentialsId: 'kubeconfig-credentials', variable: 'KUBECONFIG')]) {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
-                        export KUBECONFIG=$KUBECONFIG
-                        kubectl apply -f k8s-deployment.yaml
-                        kubectl apply -f k8s-service.yaml
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker push $IMAGE_NAME:$IMAGE_TAG
                     '''
                 }
             }
         }
+
+
+        stage('Run Container') {
+            steps {
+                sh 'docker run -d --name myapp -p 81:8080 $IMAGE_NAME:$IMAGE_TAG'
+            }
+        }
     }
 
+
     post {
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed!'
+        always {
+            echo "Pipeline Finished!"
         }
     }
 }
