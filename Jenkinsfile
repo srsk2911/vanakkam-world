@@ -14,7 +14,6 @@ pipeline {
             }
         }
 
-
         stage('Build with Maven') {
             steps {
                 withMaven(maven: 'mymaven') {
