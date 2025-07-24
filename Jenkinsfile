@@ -10,7 +10,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git url: 'https://github.com/cubensquarets/vanakkam-world.git'
+                git url: 'https://github.com/srsk2911/vanakkam-world.git'
             }
         }
 
